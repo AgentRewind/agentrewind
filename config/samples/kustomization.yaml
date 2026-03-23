@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- agentrewind_v1alpha1_agentrewindconfig.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

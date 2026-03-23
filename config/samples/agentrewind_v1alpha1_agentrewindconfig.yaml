@@ -1,0 +1,18 @@
+apiVersion: agentrewind.io/v1alpha1
+kind: AgentRewindConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: agentrewind
+    app.kubernetes.io/managed-by: kustomize
+  name: default
+  namespace: agents
+spec:
+  podSelector:
+    matchLabels:
+      agentrewind.io/enabled: "true"
+  checkpointStore:
+    secretRef:
+      name: agentrewind-db
+      key: dsn
+  retentionLimit: 100
+  recoveryAnnotation: "agentrewind.io/last-checkpoint"
