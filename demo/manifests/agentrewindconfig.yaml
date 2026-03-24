@@ -1,0 +1,15 @@
+apiVersion: agentrewind.io/v1alpha1
+kind: AgentRewindConfig
+metadata:
+  name: default
+  namespace: agentrewind
+spec:
+  podSelector:
+    matchLabels:
+      agentrewind.io/enabled: "true"
+  checkpointStore:
+    secretRef:
+      name: agentrewind-db-app
+      key: uri
+  retentionLimit: 100
+  recoveryAnnotation: "agentrewind.io/last-checkpoint"

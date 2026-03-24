@@ -122,3 +122,23 @@ endef
 define gomodver
 $(shell go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' $(1) 2>/dev/null)
 endef
+
+##@ Demo
+
+AGENT_IMG ?= agentrewind/demo-agent:latest
+
+.PHONY: kind-setup
+kind-setup: ## Set up Kind cluster with all dependencies.
+	bash hack/setup-kind.sh
+
+.PHONY: kind-destroy
+kind-destroy: ## Tear down the Kind cluster.
+	kind delete cluster --name agentrewind-demo
+
+.PHONY: demo
+demo: ## Run the full end-to-end demo.
+	bash demo/run-demo.sh
+
+.PHONY: docker-build-agent
+docker-build-agent: ## Build the demo agent Docker image.
+	$(CONTAINER_TOOL) build -t $(AGENT_IMG) demo/agent/
