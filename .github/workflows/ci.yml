@@ -15,13 +15,13 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25.3"
           cache: true
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.59
+          version: v2.1
 
   test:
     name: Test
@@ -31,11 +31,13 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25.3"
           cache: true
 
       - name: Run tests
-        run: CGO_ENABLED=0 go test $(go list ./... | grep -v /e2e) -coverprofile cover.out
+        run: |
+          packages="$(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./... | grep -v /e2e)"
+          CGO_ENABLED=0 go test ${packages} -coverprofile cover.out
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -51,7 +53,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25.3"
           cache: true
 
       - name: Build controller binary
