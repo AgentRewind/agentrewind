@@ -1,0 +1,45 @@
+AgentRewind has been installed!
+
+== Getting Started ==
+
+1. Create a Postgres secret for the checkpoint store:
+
+   kubectl create secret generic {{ .Values.checkpointStore.secretName }} \
+     --namespace {{ .Release.Namespace }} \
+     --from-literal={{ .Values.checkpointStore.secretKey }}="postgres://user:pass@host:5432/agentrewind?sslmode=disable"
+
+2. Label your agent pods to enable crash recovery:
+
+   kubectl label pod <your-agent-pod> agentrewind.io/enabled=true
+
+3. Create an AgentRewindConfig resource:
+
+   cat <<EOF | kubectl apply -f -
+   apiVersion: agentrewind.io/v1alpha1
+   kind: AgentRewindConfig
+   metadata:
+     name: default
+     namespace: {{ .Release.Namespace }}
+   spec:
+     podSelector:
+       matchLabels:
+         agentrewind.io/enabled: "true"
+     checkpointStore:
+       secretRef:
+         name: {{ .Values.checkpointStore.secretName }}
+         key: {{ .Values.checkpointStore.secretKey }}
+     retentionLimit: {{ .Values.controller.retentionLimit }}
+   EOF
+
+4. Your agent should:
+   - Emit OpenTelemetry spans with step metadata (step_index, step_name, context)
+   - Read the recovery annotation on startup:
+     annotation key: {{ .Values.controller.recoveryAnnotation }}
+
+== Useful Commands ==
+
+  Check controller logs:
+    kubectl logs -l app.kubernetes.io/name={{ include "agentrewind.name" . }} -n {{ .Release.Namespace }}
+
+  Check controller health:
+    kubectl get pods -l app.kubernetes.io/name={{ include "agentrewind.name" . }} -n {{ .Release.Namespace }}

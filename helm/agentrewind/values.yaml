@@ -1,0 +1,48 @@
+# AgentRewind Controller Helm Values
+
+replicaCount: 1
+
+image:
+  repository: agentrewind/controller
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Checkpoint store (Postgres) configuration
+checkpointStore:
+  secretName: agentrewind-db
+  secretKey: dsn
+
+# Pod selector for monitoring
+podSelector: "agentrewind.io/enabled=true"
+
+# Controller configuration
+controller:
+  # Recovery annotation key
+  recoveryAnnotation: "agentrewind.io/last-checkpoint"
+  # Max checkpoints retained per pod
+  retentionLimit: 100
+  # Health probe port
+  healthPort: 8081
+  # Metrics port
+  metricsPort: 8080
+
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "100m"
+  limits:
+    memory: "128Mi"
+    cpu: "200m"
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

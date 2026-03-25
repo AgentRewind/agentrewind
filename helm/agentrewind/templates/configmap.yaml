@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "agentrewind.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agentrewind.labels" . | nindent 4 }}
+data:
+  pod-selector: {{ .Values.podSelector | quote }}
+  recovery-annotation: {{ .Values.controller.recoveryAnnotation | quote }}
+  retention-limit: {{ .Values.controller.retentionLimit | quote }}

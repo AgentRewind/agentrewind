@@ -1,0 +1,417 @@
+---
+# Grafana datasource provisioning — connects to the AgentRewind Postgres database
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: agentrewind
+  labels:
+    app: grafana
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: AgentRewind-Postgres
+        type: postgres
+        access: proxy
+        url: agentrewind-db-rw.agentrewind.svc:5432
+        database: agentrewind
+        user: agentrewind
+        secureJsonData:
+          password: "${POSTGRES_PASSWORD}"
+        jsonData:
+          sslmode: disable
+          maxOpenConns: 5
+          maxIdleConns: 2
+          connMaxLifetime: 14400
+          postgresVersion: 1600
+          timescaledb: false
+        isDefault: true
+        editable: true
+---
+# Grafana dashboard provisioning — auto-loads dashboards from /var/lib/grafana/dashboards
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provisioning
+  namespace: agentrewind
+  labels:
+    app: grafana
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: AgentRewind
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
+---
+# Dashboard JSON loaded as a ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: agentrewind
+  labels:
+    app: grafana
+data:
+  agentrewind-aiops.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 100,
+          "title": "Agent Health",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "green", "value": null }] }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 6, "x": 0, "y": 1 },
+          "id": 1,
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Total Runs",
+          "type": "stat",
+          "targets": [{
+            "rawSql": "SELECT COUNT(DISTINCT trace_id) AS total_runs FROM checkpoints;",
+            "refId": "A",
+            "format": "table"
+          }]
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 6, "x": 6, "y": 1 },
+          "id": 2,
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Crashed Runs",
+          "type": "stat",
+          "targets": [{
+            "rawSql": "SELECT COUNT(DISTINCT trace_id) AS crashed_runs FROM checkpoints WHERE step_index < 4 AND trace_id NOT IN (SELECT DISTINCT trace_id FROM checkpoints WHERE step_index >= 4);",
+            "refId": "A",
+            "format": "table"
+          }]
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "blue", "value": null }] }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 6, "x": 12, "y": 1 },
+          "id": 3,
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Recoveries",
+          "type": "stat",
+          "targets": [{
+            "rawSql": "SELECT COUNT(*) AS recoveries FROM checkpoints WHERE context::text LIKE '%recovery%';",
+            "refId": "A",
+            "format": "table"
+          }]
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 50 }, { "color": "green", "value": 80 }] },
+              "max": 100,
+              "min": 0,
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 6, "x": 18, "y": 1 },
+          "id": 4,
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": false, "showThresholdMarkers": true },
+          "title": "Success Rate",
+          "type": "gauge",
+          "targets": [{
+            "rawSql": "SELECT ROUND(100.0 * COUNT(DISTINCT CASE WHEN max_step >= 4 THEN trace_id END) / NULLIF(COUNT(DISTINCT trace_id), 0), 1) AS success_rate FROM (SELECT trace_id, MAX(step_index) AS max_step FROM checkpoints GROUP BY trace_id) sub;",
+            "refId": "A",
+            "format": "table"
+          }]
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+          "id": 200,
+          "title": "LLM Metrics",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": { "drawStyle": "bars", "fillOpacity": 80, "stacking": { "mode": "normal" } }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+          "id": 5,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+          "title": "Tokens per Step",
+          "type": "timeseries",
+          "targets": [
+            {
+              "rawSql": "SELECT step_name, AVG(tokens_in) AS tokens_in, AVG(tokens_out) AS tokens_out FROM llm_metrics GROUP BY step_name ORDER BY MIN(step_index);",
+              "refId": "A",
+              "format": "table"
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": { "drawStyle": "bars", "fillOpacity": 80 },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+          "id": 6,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "title": "Latency by Step",
+          "type": "barchart",
+          "targets": [{
+            "rawSql": "SELECT step_name, AVG(latency_ms) AS avg_latency_ms FROM llm_metrics GROUP BY step_name ORDER BY MIN(step_index);",
+            "refId": "A",
+            "format": "table"
+          }]
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "palette-classic" } },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+          "id": 7,
+          "options": { "legend": { "displayMode": "list", "placement": "right" }, "reduceOptions": { "calcs": ["sum"] } },
+          "title": "Model Distribution",
+          "type": "piechart",
+          "targets": [{
+            "rawSql": "SELECT model, COUNT(*) AS count FROM llm_metrics GROUP BY model;",
+            "refId": "A",
+            "format": "table"
+          }]
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+          "id": 300,
+          "title": "Cost Tracking",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "green", "value": null }] },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 6, "x": 0, "y": 17 },
+          "id": 8,
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Total Spend",
+          "type": "stat",
+          "targets": [{
+            "rawSql": "SELECT SUM(cost_usd) AS total_spend FROM llm_metrics;",
+            "refId": "A",
+            "format": "table"
+          }]
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": { "steps": [{ "color": "green", "value": null }] },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 6, "x": 6, "y": 17 },
+          "id": 9,
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Waste Avoided (Recovery Savings)",
+          "type": "stat",
+          "targets": [{
+            "rawSql": "SELECT COALESCE(SUM(m.cost_usd), 0) AS waste_avoided FROM llm_metrics m INNER JOIN checkpoints c ON c.namespace = m.namespace AND c.pod_name = m.pod_name AND c.step_index = m.step_index WHERE c.context::text LIKE '%recovery%';",
+            "refId": "A",
+            "format": "table"
+          }]
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": { "drawStyle": "line", "fillOpacity": 20, "pointSize": 5, "showPoints": "always" },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 6, "x": 12, "y": 17 },
+          "id": 10,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+          "title": "Cost per Run",
+          "type": "timeseries",
+          "targets": [{
+            "rawSql": "SELECT run_id, created_at AS time, SUM(cost_usd) OVER (PARTITION BY run_id ORDER BY created_at) AS cumulative_cost FROM llm_metrics ORDER BY created_at;",
+            "refId": "A",
+            "format": "table"
+          }]
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "fieldConfig": {
+            "defaults": { "unit": "currencyUSD" },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 6, "x": 18, "y": 17 },
+          "id": 11,
+          "options": { "footer": { "enablePagination": true } },
+          "title": "Cost Breakdown by Step",
+          "type": "table",
+          "targets": [{
+            "rawSql": "SELECT step_name, COUNT(*) AS invocations, AVG(tokens_in)::int AS avg_tokens_in, AVG(tokens_out)::int AS avg_tokens_out, AVG(latency_ms)::int AS avg_latency_ms, SUM(cost_usd) AS total_cost, AVG(cost_usd) AS avg_cost FROM llm_metrics GROUP BY step_name ORDER BY MIN(step_index);",
+            "refId": "A",
+            "format": "table"
+          }]
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": ["agentrewind", "aiops", "llm", "cost"],
+      "templating": {
+        "list": [
+          {
+            "current": { "selected": false, "text": "AgentRewind-Postgres", "value": "AgentRewind-Postgres" },
+            "hide": 0,
+            "includeAll": false,
+            "label": "Datasource",
+            "name": "DS_AGENTREWIND",
+            "options": [],
+            "query": "postgres",
+            "refresh": 1,
+            "type": "datasource"
+          }
+        ]
+      },
+      "time": { "from": "now-6h", "to": "now" },
+      "title": "AgentRewind AIOps Dashboard",
+      "uid": "agentrewind-aiops"
+    }
+---
+# Grafana Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: agentrewind
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.4.2
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: "admin"
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: "admin"
+            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+              value: "/var/lib/grafana/dashboards/agentrewind-aiops.json"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: agentrewind-db-app
+                  key: password
+                  optional: true
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provisioning
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboard-provisioning
+          configMap:
+            name: grafana-dashboard-provisioning
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+---
+# Grafana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: agentrewind
+  labels:
+    app: grafana
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: grafana

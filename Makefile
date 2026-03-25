@@ -142,3 +142,23 @@ demo: ## Run the full end-to-end demo.
 .PHONY: docker-build-agent
 docker-build-agent: ## Build the demo agent Docker image.
 	$(CONTAINER_TOOL) build -t $(AGENT_IMG) demo/agent/
+
+##@ Helm
+
+.PHONY: helm-template
+helm-template: ## Render Helm chart templates.
+	helm template agentrewind helm/agentrewind/
+
+.PHONY: helm-lint
+helm-lint: ## Lint the Helm chart.
+	helm lint helm/agentrewind/
+
+##@ Port Forwarding
+
+.PHONY: grafana-port-forward
+grafana-port-forward: ## Port-forward Grafana to localhost:3000.
+	kubectl port-forward svc/grafana -n agentrewind 3000:3000
+
+.PHONY: jaeger-port-forward
+jaeger-port-forward: ## Port-forward Jaeger to localhost:16686.
+	kubectl port-forward svc/jaeger -n agentrewind 16686:16686

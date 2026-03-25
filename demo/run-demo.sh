@@ -110,6 +110,10 @@ if [ -n "$PG_POD" ]; then
 fi
 
 echo ""
-echo -e "  Jaeger UI: ${BOLD}kubectl port-forward svc/jaeger -n ${NAMESPACE} 16686:16686${RESET}"
-echo -e "             Then open http://localhost:16686"
+echo -e "  ${BOLD}Jaeger UI:${RESET}  kubectl port-forward svc/jaeger -n ${NAMESPACE} 16686:16686"
+echo -e "              Then open http://localhost:16686"
+echo ""
+echo -e "  ${BOLD}Grafana:${RESET}    kubectl port-forward svc/grafana -n ${NAMESPACE} 3000:3000"
+echo -e "              Then open http://localhost:3000 (admin/admin)"
+echo -e "              Dashboard: AgentRewind AIOps Dashboard"
 echo ""

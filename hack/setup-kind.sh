@@ -198,9 +198,18 @@ echo "Applying AgentRewindConfig..."
 kubectl apply -f "$REPO_ROOT/demo/manifests/agentrewindconfig.yaml" 2>/dev/null || true
 echo "✓ AgentRewindConfig applied"
 
+# 12. Deploy Grafana
+echo "Deploying Grafana..."
+kubectl apply -f "$REPO_ROOT/demo/manifests/grafana.yaml"
+kubectl wait --for=condition=available deployment/grafana -n "$NAMESPACE" --timeout=120s 2>/dev/null || echo "⚠ Grafana deployment may still be starting"
+echo "✓ Grafana deployed"
+
 echo ""
 echo "=== Setup Complete ==="
 echo "  Cluster:     kind-${CLUSTER_NAME}"
 echo "  Namespace:   ${NAMESPACE}"
-echo "  Jaeger UI:   kubectl port-forward svc/jaeger -n ${NAMESPACE} 16686:16686"
+echo ""
+echo "  Port-forward commands:"
+echo "    Jaeger UI:   kubectl port-forward svc/jaeger -n ${NAMESPACE} 16686:16686   → http://localhost:16686"
+echo "    Grafana:     kubectl port-forward svc/grafana -n ${NAMESPACE} 3000:3000     → http://localhost:3000 (admin/admin)"
 echo ""

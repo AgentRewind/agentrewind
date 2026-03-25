@@ -1,0 +1,17 @@
+apiVersion: v2
+name: agentrewind
+description: A Kubernetes controller that resumes crashed AI agents from their last reasoning step.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: AgentRewind
+keywords:
+  - kubernetes
+  - ai-agents
+  - crash-recovery
+  - opentelemetry
+  - observability
+home: https://github.com/AgentRewind/agentrewind
+sources:
+  - https://github.com/AgentRewind/agentrewind
