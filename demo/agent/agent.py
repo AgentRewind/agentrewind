@@ -165,10 +165,53 @@ def get_pg_connection():
     try:
         conn = psycopg2.connect(POSTGRES_DSN)
         conn.autocommit = True
+        _ensure_tables(conn)
         return conn
     except Exception as e:
         print(f"{YELLOW}WARNING: Could not connect to Postgres: {e}{RESET}")
         return None
+
+
+def _ensure_tables(conn):
+    """Create tables if they don't exist (self-healing for existing clusters)."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS checkpoints (
+                    id          BIGSERIAL PRIMARY KEY,
+                    pod_name    TEXT NOT NULL,
+                    namespace   TEXT NOT NULL,
+                    step_index  INTEGER NOT NULL,
+                    step_name   TEXT NOT NULL,
+                    trace_id    TEXT NOT NULL,
+                    span_id     TEXT NOT NULL,
+                    context     JSONB NOT NULL DEFAULT '{}',
+                    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS idx_checkpoints_pod
+                    ON checkpoints (namespace, pod_name, created_at DESC);
+                CREATE TABLE IF NOT EXISTS llm_metrics (
+                    id          BIGSERIAL PRIMARY KEY,
+                    run_id      TEXT NOT NULL,
+                    pod_name    TEXT NOT NULL,
+                    namespace   TEXT NOT NULL,
+                    step_index  INTEGER NOT NULL,
+                    step_name   TEXT NOT NULL,
+                    model       TEXT NOT NULL,
+                    tokens_in   INTEGER NOT NULL,
+                    tokens_out  INTEGER NOT NULL,
+                    latency_ms  FLOAT NOT NULL,
+                    cost_usd    FLOAT NOT NULL,
+                    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS idx_llm_metrics_run
+                    ON llm_metrics (run_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_llm_metrics_pod
+                    ON llm_metrics (namespace, pod_name, created_at DESC);
+            """)
+        print(f"  {GREEN}✓  Database tables verified{RESET}")
+    except Exception as e:
+        print(f"{YELLOW}WARNING: Failed to ensure tables: {e}{RESET}")
 
 
 def write_checkpoint(conn, step_index: int, step_name: str, trace_id: str, span_id: str, context: dict):
