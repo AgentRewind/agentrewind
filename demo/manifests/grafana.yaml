@@ -12,6 +12,7 @@ data:
     apiVersion: 1
     datasources:
       - name: AgentRewind-Postgres
+        uid: agentrewind-postgres
         type: postgres
         access: proxy
         url: agentrewind-db-rw.agentrewind.svc:5432
@@ -77,7 +78,7 @@ data:
           "type": "row"
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
@@ -91,13 +92,13 @@ data:
           "title": "Total Runs",
           "type": "stat",
           "targets": [{
-            "rawSql": "SELECT COUNT(DISTINCT trace_id) AS total_runs FROM checkpoints;",
+            "rawSql": "SELECT COUNT(DISTINCT trace_id) AS \"total_runs\" FROM checkpoints;",
             "refId": "A",
             "format": "table"
           }]
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
@@ -111,13 +112,13 @@ data:
           "title": "Crashed Runs",
           "type": "stat",
           "targets": [{
-            "rawSql": "SELECT COUNT(DISTINCT trace_id) AS crashed_runs FROM checkpoints WHERE step_index < 4 AND trace_id NOT IN (SELECT DISTINCT trace_id FROM checkpoints WHERE step_index >= 4);",
+            "rawSql": "SELECT COUNT(DISTINCT trace_id) AS \"crashed_runs\" FROM checkpoints WHERE trace_id NOT IN (SELECT trace_id FROM checkpoints WHERE step_index >= 4);",
             "refId": "A",
             "format": "table"
           }]
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
@@ -131,13 +132,13 @@ data:
           "title": "Recoveries",
           "type": "stat",
           "targets": [{
-            "rawSql": "SELECT COUNT(*) AS recoveries FROM checkpoints WHERE context::text LIKE '%recovery%';",
+            "rawSql": "SELECT COUNT(*) AS \"recoveries\" FROM (SELECT trace_id FROM checkpoints GROUP BY trace_id HAVING MIN(step_index) > 0) sub;",
             "refId": "A",
             "format": "table"
           }]
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
@@ -154,7 +155,7 @@ data:
           "title": "Success Rate",
           "type": "gauge",
           "targets": [{
-            "rawSql": "SELECT ROUND(100.0 * COUNT(DISTINCT CASE WHEN max_step >= 4 THEN trace_id END) / NULLIF(COUNT(DISTINCT trace_id), 0), 1) AS success_rate FROM (SELECT trace_id, MAX(step_index) AS max_step FROM checkpoints GROUP BY trace_id) sub;",
+            "rawSql": "SELECT ROUND(100.0 * COUNT(DISTINCT CASE WHEN max_step >= 4 THEN trace_id END) / NULLIF(COUNT(DISTINCT trace_id), 0), 1) AS \"success_rate\" FROM (SELECT trace_id, MAX(step_index) AS max_step FROM checkpoints GROUP BY trace_id) sub;",
             "refId": "A",
             "format": "table"
           }]
@@ -167,11 +168,10 @@ data:
           "type": "row"
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": {
-              "color": { "mode": "palette-classic" },
-              "custom": { "drawStyle": "bars", "fillOpacity": 80, "stacking": { "mode": "normal" } }
+              "color": { "mode": "palette-classic" }
             },
             "overrides": []
           },
@@ -179,21 +179,20 @@ data:
           "id": 5,
           "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
           "title": "Tokens per Step",
-          "type": "timeseries",
+          "type": "barchart",
           "targets": [
             {
-              "rawSql": "SELECT step_name, AVG(tokens_in) AS tokens_in, AVG(tokens_out) AS tokens_out FROM llm_metrics GROUP BY step_name ORDER BY MIN(step_index);",
+              "rawSql": "SELECT step_name AS \"Step\", ROUND(AVG(tokens_in))::int AS \"Tokens In\", ROUND(AVG(tokens_out))::int AS \"Tokens Out\" FROM llm_metrics GROUP BY step_name ORDER BY MIN(step_index);",
               "refId": "A",
               "format": "table"
             }
           ]
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "palette-classic" },
-              "custom": { "drawStyle": "bars", "fillOpacity": 80 },
               "unit": "ms"
             },
             "overrides": []
@@ -204,13 +203,13 @@ data:
           "title": "Latency by Step",
           "type": "barchart",
           "targets": [{
-            "rawSql": "SELECT step_name, AVG(latency_ms) AS avg_latency_ms FROM llm_metrics GROUP BY step_name ORDER BY MIN(step_index);",
+            "rawSql": "SELECT step_name AS \"Step\", ROUND(AVG(latency_ms))::int AS \"Avg Latency\" FROM llm_metrics GROUP BY step_name ORDER BY MIN(step_index);",
             "refId": "A",
             "format": "table"
           }]
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": { "color": { "mode": "palette-classic" } },
             "overrides": []
@@ -221,7 +220,7 @@ data:
           "title": "Model Distribution",
           "type": "piechart",
           "targets": [{
-            "rawSql": "SELECT model, COUNT(*) AS count FROM llm_metrics GROUP BY model;",
+            "rawSql": "SELECT model AS \"Model\", COUNT(*) AS \"Count\" FROM llm_metrics GROUP BY model;",
             "refId": "A",
             "format": "table"
           }]
@@ -234,7 +233,7 @@ data:
           "type": "row"
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
@@ -249,13 +248,13 @@ data:
           "title": "Total Spend",
           "type": "stat",
           "targets": [{
-            "rawSql": "SELECT SUM(cost_usd) AS total_spend FROM llm_metrics;",
+            "rawSql": "SELECT COALESCE(SUM(cost_usd), 0) AS \"total_spend\" FROM llm_metrics;",
             "refId": "A",
             "format": "table"
           }]
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
@@ -270,13 +269,13 @@ data:
           "title": "Waste Avoided (Recovery Savings)",
           "type": "stat",
           "targets": [{
-            "rawSql": "SELECT COALESCE(SUM(m.cost_usd), 0) AS waste_avoided FROM llm_metrics m INNER JOIN checkpoints c ON c.namespace = m.namespace AND c.pod_name = m.pod_name AND c.step_index = m.step_index WHERE c.context::text LIKE '%recovery%';",
+            "rawSql": "SELECT COALESCE(SUM(m.cost_usd), 0) AS \"waste_avoided\" FROM llm_metrics m WHERE m.run_id IN (SELECT run_id FROM llm_metrics GROUP BY run_id HAVING MAX(step_index) < 4);",
             "refId": "A",
             "format": "table"
           }]
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "palette-classic" },
@@ -291,13 +290,13 @@ data:
           "title": "Cost per Run",
           "type": "timeseries",
           "targets": [{
-            "rawSql": "SELECT run_id, created_at AS time, SUM(cost_usd) OVER (PARTITION BY run_id ORDER BY created_at) AS cumulative_cost FROM llm_metrics ORDER BY created_at;",
+            "rawSql": "SELECT created_at AS \"time\", cost_usd AS \"cost\", run_id AS \"metric\" FROM llm_metrics ORDER BY created_at;",
             "refId": "A",
-            "format": "table"
+            "format": "time_series"
           }]
         },
         {
-          "datasource": { "type": "postgres", "uid": "${DS_AGENTREWIND}" },
+          "datasource": { "type": "postgres", "uid": "agentrewind-postgres" },
           "fieldConfig": {
             "defaults": { "unit": "currencyUSD" },
             "overrides": []
@@ -308,7 +307,7 @@ data:
           "title": "Cost Breakdown by Step",
           "type": "table",
           "targets": [{
-            "rawSql": "SELECT step_name, COUNT(*) AS invocations, AVG(tokens_in)::int AS avg_tokens_in, AVG(tokens_out)::int AS avg_tokens_out, AVG(latency_ms)::int AS avg_latency_ms, SUM(cost_usd) AS total_cost, AVG(cost_usd) AS avg_cost FROM llm_metrics GROUP BY step_name ORDER BY MIN(step_index);",
+            "rawSql": "SELECT step_name AS \"Step\", COUNT(*) AS \"Invocations\", AVG(tokens_in)::int AS \"Avg Tokens In\", AVG(tokens_out)::int AS \"Avg Tokens Out\", AVG(latency_ms)::int AS \"Avg Latency (ms)\", SUM(cost_usd) AS \"Total Cost\", AVG(cost_usd) AS \"Avg Cost\" FROM llm_metrics GROUP BY step_name ORDER BY MIN(step_index);",
             "refId": "A",
             "format": "table"
           }]
@@ -317,19 +316,7 @@ data:
       "schemaVersion": 39,
       "tags": ["agentrewind", "aiops", "llm", "cost"],
       "templating": {
-        "list": [
-          {
-            "current": { "selected": false, "text": "AgentRewind-Postgres", "value": "AgentRewind-Postgres" },
-            "hide": 0,
-            "includeAll": false,
-            "label": "Datasource",
-            "name": "DS_AGENTREWIND",
-            "options": [],
-            "query": "postgres",
-            "refresh": 1,
-            "type": "datasource"
-          }
-        ]
+        "list": []
       },
       "time": { "from": "now-6h", "to": "now" },
       "title": "AgentRewind AIOps Dashboard",
